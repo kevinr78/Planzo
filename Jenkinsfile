@@ -16,8 +16,6 @@ environment {
     STRIPE_KEY    = credentials('VITE_STRIPE_PUBLISHABLE_KEY')
     DB_USER       = credentials('POSTGRES_USER')
     DB_PASS       = credentials('POSTGRES_PASSWORD')
-    
-    // Mapping the Username/Password for GitHub
     GIT_CREDS     = credentials('github-token')
 }
 
