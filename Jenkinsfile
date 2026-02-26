@@ -7,22 +7,15 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
     }
 
-environment {
-    APP_NAME      = 'planzo-web'
-    DEV_SERVER    = "ubuntu@172.31.6.31"
-    
-    // Map the Secret Text IDs to local variables
-    MAPS_KEY      = credentials('VITE_GOOGLE_MAPS_API_KEY')
-    STRIPE_KEY    = credentials('VITE_STRIPE_PUBLISHABLE_KEY')
-    DB_USER       = credentials('POSTGRES_USER')
-    DB_PASS       = credentials('POSTGRES_PASSWORD')
-    GIT_CREDS     = credentials('github-token')
-}
+    environment {
+        APP_NAME     = 'planzo-web'
+        DEV_SERVER   = "ubuntu@172.31.6.31"
+        // REMOVED the DB and Map keys from here to prevent the early crash
+    }
 
     stages {
         stage('Checkout') {
             steps {
-                // Using the GIT_CREDS to authenticate the checkout
                 checkout([$class: 'GitSCM', 
                     branches: [[name: '*/test_jenkins']], 
                     userRemoteConfigs: [[
@@ -35,64 +28,57 @@ environment {
 
         stage('Install Dependencies') {
             steps {
-                echo '=== Installing npm dependencies ==='
                 sh 'npm ci --prefer-offline'
             }
         }
 
         stage('Build Frontend') {
             steps {
-                // Using the variables defined in the environment block
-                sh "VITE_GOOGLE_MAPS_API_KEY=${MAPS_KEY} VITE_STRIPE_PUBLISHABLE_KEY=${STRIPE_KEY} npm run build"
-                echo "Build complete. Artifact: dist/"
-
+                // Use withCredentials here so the build only fails if keys are missing during the build stage
+                withCredentials([
+                    string(credentialsId: 'VITE_GOOGLE_MAPS_API_KEY', variable: 'MAPS_KEY'),
+                    string(credentialsId: 'VITE_STRIPE_PUBLISHABLE_KEY', variable: 'STRIPE_KEY')
+                ]) {
+                    sh "VITE_GOOGLE_MAPS_API_KEY=${MAPS_KEY} VITE_STRIPE_PUBLISHABLE_KEY=${STRIPE_KEY} npm run build"
+                }
             }
         }
 
         stage('Docker Build') {
             steps {
-              echo "=== Building Docker image ==="
-
                 sh "docker build -t ${APP_NAME}:latest ."
             }
         }
-stage('Remote Deploy Stage') {
-    steps {
-      withCredentials([
-            string(credentialsId: 'POSTGRES_USER', variable: 'DB_USER'),
-            string(credentialsId: 'POSTGRES_PASSWORD', variable: 'DB_PASS'),
-            string(credentialsId: 'VITE_GOOGLE_MAPS_API_KEY', variable: 'MAPS_KEY')
-        ])
-        script {
-            // 1. Transfer docker-compose to Dev Server
-            sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${DEV_SERVER}:~/docker-compose.yml"
-            
-            // 2. Execute Deployment using bracketed variables
-            sh """
-                ssh -o StrictHostKeyChecking=no ${DEV_SERVER} "
-                    export POSTGRES_USER=${DB_USER}
-                    export POSTGRES_PASSWORD=${DB_PASS}
-                    
-                    cd ~
-                    docker-compose up -d db
-                    
-                    echo 'Waiting for PostGIS...'
-                    # Use triple backslash for the remote shell variable
-                    until [ \\\$(docker inspect -f '{{.State.Health.Status}}' planzo-db) == 'healthy' ]; do 
-                        sleep 2
-                    done
-                    
-                    docker-compose up -d app
-                "
-            """
+
+        stage('Remote Deploy Stage') {
+            steps {
+                // The withCredentials block MUST wrap the script/sh commands
+                withCredentials([
+                    string(credentialsId: 'POSTGRES_USER', variable: 'DB_USER'),
+                    string(credentialsId: 'POSTGRES_PASSWORD', variable: 'DB_PASS')
+                ]) {
+                    script {
+                        sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${DEV_SERVER}:~/docker-compose.yml"
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${DEV_SERVER} "
+                                export POSTGRES_USER=${DB_USER}
+                                export POSTGRES_PASSWORD=${DB_PASS}
+                                cd ~
+                                docker-compose up -d db
+                                echo 'Waiting for PostGIS...'
+                                until [ \\\$(docker inspect -f '{{.State.Health.Status}}' planzo-db) == 'healthy' ]; do 
+                                    sleep 2
+                                done
+                                docker-compose up -d app
+                            "
+                        """
+                    }
+                }
+            }
         }
-    }
-}
     }
 
     post {
-        success {
-            echo "✅ Deployment Complete"
-        }
+        success { echo "✅ Deployment Complete" }
     }
 }
