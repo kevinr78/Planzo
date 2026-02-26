@@ -46,11 +46,15 @@ environment {
             steps {
                 // Using the variables defined in the environment block
                 sh "VITE_GOOGLE_MAPS_API_KEY=${MAPS_KEY} VITE_STRIPE_PUBLISHABLE_KEY=${STRIPE_KEY} npm run build"
+                echo "Build complete. Artifact: dist/"
+
             }
         }
 
         stage('Docker Build') {
             steps {
+              echo "=== Building Docker image ==="
+
                 sh "docker build -t ${APP_NAME}:latest ."
             }
         }
