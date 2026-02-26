@@ -58,6 +58,11 @@ environment {
         }
 stage('Remote Deploy Stage') {
     steps {
+      withCredentials([
+            string(credentialsId: 'POSTGRES_USER', variable: 'DB_USER'),
+            string(credentialsId: 'POSTGRES_PASSWORD', variable: 'DB_PASS'),
+            string(credentialsId: 'VITE_GOOGLE_MAPS_API_KEY', variable: 'MAPS_KEY')
+        ])
         script {
             // 1. Transfer docker-compose to Dev Server
             sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${DEV_SERVER}:~/docker-compose.yml"
@@ -88,14 +93,6 @@ stage('Remote Deploy Stage') {
     post {
         success {
             echo "✅ Deployment Complete"
-        }
-        always {
-            // Secure cleanup: only runs if a workspace actually exists
-            script {
-                if (env.NODE_NAME) {
-                    cleanWs()
-                }
-            }
         }
     }
 }
