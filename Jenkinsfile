@@ -3,82 +3,67 @@ pipeline {
 
     options {
         timestamps()
-        disableConcurrentBuilds()
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 10, unit: 'MINUTES')
     }
 
     environment {
-        APP_NAME     = 'planzo-web'
-        DEV_SERVER   = "ubuntu@172.31.6.31"
-        // REMOVED the DB and Map keys from here to prevent the early crash
+        DEV_SERVER = "ubuntu@172.31.6.31"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Test 1: Credentials Validation') {
             steps {
-                checkout([$class: 'GitSCM', 
-                    branches: [[name: '*/test_jenkins']], 
-                    userRemoteConfigs: [[
-                        url: 'https://github.com/kevinr78/Planzo.git',
-                        credentialsId: 'github-token' 
-                    ]]
-                ])
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                sh 'npm ci --prefer-offline'
-            }
-        }
-
-        stage('Build Frontend') {
-            steps {
-                // Use withCredentials here so the build only fails if keys are missing during the build stage
+                echo "=== Checking Credential Availability ==="
+                // withCredentials will fail the stage immediately if the ID is missing
                 withCredentials([
                     string(credentialsId: 'VITE_GOOGLE_MAPS_API_KEY', variable: 'MAPS_KEY'),
-                    string(credentialsId: 'VITE_STRIPE_PUBLISHABLE_KEY', variable: 'STRIPE_KEY')
-                ]) {
-                    sh "VITE_GOOGLE_MAPS_API_KEY=${MAPS_KEY} VITE_STRIPE_PUBLISHABLE_KEY=${STRIPE_KEY} npm run build"
-                }
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                sh "docker build -t ${APP_NAME}:latest ."
-            }
-        }
-
-        stage('Remote Deploy Stage') {
-            steps {
-                // The withCredentials block MUST wrap the script/sh commands
-                withCredentials([
+                    string(credentialsId: 'VITE_STRIPE_PUBLISHABLE_KEY', variable: 'STRIPE_KEY'),
                     string(credentialsId: 'POSTGRES_USER', variable: 'DB_USER'),
-                    string(credentialsId: 'POSTGRES_PASSWORD', variable: 'DB_PASS')
+                    string(credentialsId: 'POSTGRES_PASSWORD', variable: 'DB_PASS'),
+                    usernamePassword(credentialsId: 'github_token', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PAT')
                 ]) {
                     script {
-                        sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${DEV_SERVER}:~/docker-compose.yml"
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ${DEV_SERVER} "
-                                export POSTGRES_USER=${DB_USER}
-                                export POSTGRES_PASSWORD=${DB_PASS}
-                                cd ~
-                                docker-compose up -d db
-                                echo 'Waiting for PostGIS...'
-                                until [ \\\$(docker inspect -f '{{.State.Health.Status}}' planzo-db) == 'healthy' ]; do 
-                                    sleep 2
-                                done
-                                docker-compose up -d app
-                            "
-                        """
+                        // We check length/presence so we don't leak the actual secrets in logs
+                        if (MAPS_KEY) echo "✅ VITE_GOOGLE_MAPS_API_KEY is loaded (Length: ${MAPS_KEY.length()})"
+                        if (STRIPE_KEY) echo "✅ VITE_STRIPE_PUBLISHABLE_KEY is loaded"
+                        if (DB_USER) echo "✅ POSTGRES_USER is loaded: ${DB_USER}"
+                        if (DB_PASS) echo "✅ POSTGRES_PASSWORD is loaded"
+                        if (GIT_USER) echo "✅ github_token is loaded for user: ${GIT_USER}"
                     }
                 }
+            }
+        }
+
+        stage('Test 2: Build Tool Presence') {
+            steps {
+                echo "=== Checking Software on Jenkins EC2 ==="
+                sh 'node -v || echo "❌ Node.js not found"'
+                sh 'npm -v || echo "❌ npm not found"'
+                sh 'docker --version || echo "❌ Docker not found"'
+            }
+        }
+
+        stage('Test 3: Dev Server Connectivity') {
+            steps {
+                echo "=== Testing SSH Connection to ${DEV_SERVER} ==="
+                // Runs a simple uptime command on the remote server
+                sh """
+                    ssh -o StrictHostKeyChecking=no ${DEV_SERVER} "
+                        echo 'Successfully connected to Dev EC2!'
+                        echo 'Server Uptime:' && uptime
+                        echo 'Checking Docker on Dev Server:' && docker --version
+                    "
+                """
             }
         }
     }
 
     post {
-        success { echo "✅ Deployment Complete" }
+        success {
+            echo "✅ All Administrative checks passed!"
+        }
+        failure {
+            echo "❌ One or more checks failed. Review the console output above."
+        }
     }
 }
