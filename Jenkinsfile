@@ -19,7 +19,7 @@ pipeline {
                     string(credentialsId: 'VITE_STRIPE_PUBLISHABLE_KEY', variable: 'STRIPE_KEY'),
                     string(credentialsId: 'POSTGRES_USER', variable: 'DB_USER'),
                     string(credentialsId: 'POSTGRES_PASSWORD', variable: 'DB_PASS'),
-                    usernamePassword(credentialsId: 'github_token', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PAT')
+                    usernamePassword(credentialsId: 'github-token', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PAT')
                 ]) {
                     script {
                         // We check length/presence so we don't leak the actual secrets in logs
