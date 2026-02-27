@@ -33,7 +33,7 @@ pipeline {
             }
         }
 
-        stage('Test 2: Build Tool Presence') {
+        stage('Test 2: Build Tools Presence') {
             steps {
                 echo "=== Checking Software on Jenkins EC2 ==="
                 sh 'node -v || echo "❌ Node.js not found"'
