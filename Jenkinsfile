@@ -10,7 +10,7 @@ pipeline {
     }
 
     stages {
-        stage('Test 1: Credentials Validation') {
+        stage('Test 1: Credentials Validations') {
             steps {
                 echo "=== Checking Credential Availability ==="
                 // withCredentials will fail the stage immediately if the ID is missing
