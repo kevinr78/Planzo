@@ -40,24 +40,26 @@ pipeline {
         }
 
         stage('Remote Deploy') {
-            steps {
-                script {
-                    echo "=== Transferring to server==="
-                    // 1. Transfer docker-compose to the Dev Server
-                    sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${DEV_SERVER}:~/docker-compose.yml"
-                    
-                    // 2. Simple restart of the app container
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ${DEV_SERVER} "
-                            # Pulling isn't needed if you build locally, 
-                            # but we ensure the container restarts with the new image
-                            docker compose up -d --force-recreate app
-                            docker image prune -f
-                        "
-                    """
-                }
-            }
+    steps {
+        script {
+            // 1. Save the image on Jenkins and pipe it to the Dev Server over SSH
+            echo "=== Transferring Image to Dev Server ==="
+            sh "docker save ${DOCKER_IMAGE} | ssh -o StrictHostKeyChecking=no ${DEV_SERVER} 'docker load'"
+
+            // 2. Transfer docker-compose.yml
+            sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${DEV_SERVER}:~/docker-compose.yml"
+            
+            // 3. Deploy without pulling
+            sh """
+                ssh -o StrictHostKeyChecking=no ${DEV_SERVER} "
+                    # --no-build tells compose to use the image we just 'loaded'
+                    docker compose up -d --force-recreate app
+                    docker image prune -f
+                "
+            """
         }
+    }
+}
     }
 
     post {
