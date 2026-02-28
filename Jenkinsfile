@@ -6,7 +6,7 @@ pipeline {
     }
 
     environment {
-        DEV_SERVER = "ubuntu@172.31.6.31"
+        DEV_SERVER = "ubuntu@172.31.15.225"
     }
 
     stages {
