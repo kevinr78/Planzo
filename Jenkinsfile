@@ -35,7 +35,7 @@ pipeline {
       }
     }
 
-    stage('Docker Build') {
+    stage('Docker Build!') {
       steps {
         echo "=== Building Docker image ==="
         sh 'docker build --cpu-quota=50000 --memory="1g" -t ${DOCKER_IMAGE} .'
