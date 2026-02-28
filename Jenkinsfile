@@ -42,6 +42,7 @@ pipeline {
         stage('Remote Deploy') {
             steps {
                 script {
+                    echo "=== Transferring to server==="
                     // 1. Transfer docker-compose to the Dev Server
                     sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${DEV_SERVER}:~/docker-compose.yml"
                     
@@ -50,7 +51,7 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no ${DEV_SERVER} "
                             # Pulling isn't needed if you build locally, 
                             # but we ensure the container restarts with the new image
-                            docker-compose up -d --force-recreate app
+                            docker compose up -d --force-recreate app
                             docker image prune -f
                         "
                     """
