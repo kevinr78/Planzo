@@ -357,7 +357,7 @@ export function EventDiscovery() {
                     <h1 className="anim-fade-up delay-1 text-4xl md:text-6xl lg:text-7xl font-black mb-5 max-w-3xl" style={{ fontFamily: "'Outfit',sans-serif", color: "#ffffff", lineHeight: 1.08, letterSpacing: "-0.02em" }}>
                         Find Events That
                         <br />
-                        <span className="shimmer-text" style={{ WebkitBackgroundClip: "text" }}>Move You</span>
+                        <span className="shimmer-text" style={{ WebkitBackgroundClip: "text" }}>are for you</span>
                     </h1>
 
                     <p className="anim-fade-up delay-2 text-base md:text-lg mb-10 max-w-lg" style={{ color: "rgba(255,255,255,0.6)", lineHeight: 1.7 }}>
