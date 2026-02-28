@@ -28,7 +28,7 @@ pipeline {
           string(credentialsId: 'VITE_GOOGLE_MAPS_API_KEY', variable: 'MAPS_KEY'),
           string(credentialsId: 'VITE_STRIPE_PUBLISHABLE_KEY', variable: 'STRIPE_KEY')
         ]) {
-          sh 'npm ci --prefer-offline'
+          sh 'NODE_OPTIONS="--max-old-space-size=512" npm ci --prefer-offline --no-audit --no-fund'
           // Injecting variables into the Vite build
           sh "VITE_GOOGLE_MAPS_API_KEY=${MAPS_KEY} VITE_STRIPE_PUBLISHABLE_KEY=${STRIPE_KEY} npm run build"
         }
@@ -38,7 +38,7 @@ pipeline {
     stage('Docker Build') {
       steps {
         echo "=== Building Docker image ==="
-        sh "docker build -t ${DOCKER_IMAGE} ."
+        sh 'docker build --cpu-quota=50000 --memory="1g" -t ${DOCKER_IMAGE} .'
       }
     }
 
