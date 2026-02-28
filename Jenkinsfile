@@ -42,7 +42,7 @@ pipeline {
         stage('Remote Deploy') {
     steps {
         script {
-            // 1. Save the image on Jenkins and pipe it to the Dev Server over SSH
+            // 1. Save the image on Jenkins and pipe it to the Dev Server over SSH.
             echo "=== Transferring Image to Dev Server ==="
             sh "docker save ${DOCKER_IMAGE} | ssh -o StrictHostKeyChecking=no ${DEV_SERVER} 'docker load'"
 
