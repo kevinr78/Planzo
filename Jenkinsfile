@@ -22,7 +22,7 @@ pipeline {
                     usernamePassword(credentialsId: 'github-token', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PAT')
                 ]) {
                     script {
-                        // We check length/presence so we don't leak the actual secrets in logs
+                        // We check length/presence so we don't leak the actual secrets in logs!!!
                         if (MAPS_KEY) echo "✅ VITE_GOOGLE_MAPS_API_KEY is loaded. (Length: ${MAPS_KEY.length()})"
                         if (STRIPE_KEY) echo "✅ VITE_STRIPE_PUBLISHABLE_KEY is loaded"
                         if (DB_USER) echo "✅ POSTGRES_USER is loaded: ${DB_USER}"
