@@ -4,7 +4,7 @@ pipeline {
     options {
         timestamps()
         disableConcurrentBuilds()
-        timeout(time: 15, unit: 'MINUTES') // Reduced timeout for simpler build
+        timeout(time:8, unit: 'MINUTES')
     }
 
     environment {
@@ -15,11 +15,11 @@ pipeline {
 
     stages {
         stage('Checkout') {
+          
             steps {
                 checkout scm
             }
         }
-
         stage('Install & Build') {
             steps {
                 withCredentials([
@@ -40,28 +40,27 @@ pipeline {
         }
 
         stage('Remote Deploy') {
-    steps {
-        script {
-            // 1. Save the image on Jenkins and pipe it to the Dev Server over SSH.
-            echo "=== Transferring Image to Dev Server ==="
-            sh "docker save ${DOCKER_IMAGE} | ssh -o StrictHostKeyChecking=no ${DEV_SERVER} 'docker load'"
+          steps {
+            script {
+              // 1. Save the image on Jenkins and pipe it to the Dev Server over SSH.
+              echo "=== Transferring Image to Dev Server ==="
+              sh "docker save ${DOCKER_IMAGE} | ssh -o StrictHostKeyChecking=no ${DEV_SERVER} 'docker load'"
 
-            // 2. Transfer docker-compose.yml
-            sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${DEV_SERVER}:~/docker-compose.yml"
-            
-            // 3. Deploy without pulling
-            sh """
-                ssh -o StrictHostKeyChecking=no ${DEV_SERVER} "
-                    # --no-build tells compose to use the image we just 'loaded'
-                    docker compose up -d --force-recreate app
-                    docker image prune -f
-                "
-            """
+              // 2. Transfer docker-compose.yml
+              sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${DEV_SERVER}:~/docker-compose.yml"
+              
+              // 3. Deploy without pulling
+              sh """
+                  ssh -o StrictHostKeyChecking=no ${DEV_SERVER} "
+                      # --no-build tells compose to use the image we just 'loaded'
+                      docker compose up -d --force-recreate app
+                      docker image prune -f
+                  "
+                """
+            }
+          }
         }
     }
-}
-    }
-
     post {
         success {
             echo "✅ Frontend deployed to http://172.31.15.225"
