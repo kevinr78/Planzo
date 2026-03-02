@@ -631,7 +631,7 @@ export function EventDiscovery() {
               className="shimmer-text"
               style={{ WebkitBackgroundClip: "text" }}
             >
-              are for you!!
+              are nearby to you!!
             </span>
           </h1>
 
