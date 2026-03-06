@@ -20,7 +20,7 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Install & Build') {
+        stage('Install & Builds') {
             steps {
                 withCredentials([
                     string(credentialsId: 'VITE_GOOGLE_MAPS_API_KEY', variable: 'MAPS_KEY'),
@@ -81,7 +81,17 @@ pipeline {
             }
         }
         always {
-            script { if (env.NODE_NAME) { cleanWs() } }
+            script { 
+                // 1. Wipe the workspace files from the disk
+                cleanWs()
+                
+                // 2. Remove the local image we just built to save space
+                // Since we transferred it to the Dev server, we don't need it here anymore
+                sh "docker rmi ${DOCKER_IMAGE} || true"
+                
+                // 3. Optional: A light prune to catch any stray layers
+                sh "docker image prune -f"
+            }
         }
     }
 }
