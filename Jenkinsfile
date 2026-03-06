@@ -63,10 +63,22 @@ pipeline {
     }
     post {
         success {
-            echo "✅ Frontend deployed to http://172.31.15.225"
+            withCredentials([string(credentialsId: 'PLANZO_SLACK_WEBHOOK', variable: 'SLACK_URL')]) {
+                sh """
+                    curl -X POST -H 'Content-type: application/json' \
+                    --data '{"text":"✅ *Planzo Build #${env.BUILD_NUMBER} Success!* \nDeployed to: http://172.31.15.225"}' \
+                    ${SLACK_URL}
+                """
+            }
         }
         failure {
-            echo "❌Error while deploying frontend."
+            withCredentials([string(credentialsId: 'PLANZO_SLACK_WEBHOOK', variable: 'SLACK_URL')]) {
+                sh """
+                    curl -X POST -H 'Content-type: application/json' \
+                    --data '{"text":"❌ *Planzo Build #${env.BUILD_NUMBER} FAILED.* \nCheck logs: ${env.BUILD_URL}"}' \
+                    ${SLACK_URL}
+                """
+            }
         }
         always {
             script { if (env.NODE_NAME) { cleanWs() } }
