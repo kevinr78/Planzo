@@ -27,7 +27,7 @@ pipeline {
                     string(credentialsId: 'VITE_STRIPE_PUBLISHABLE_KEY', variable: 'STRIPE_KEY')
                 ]) {
                     sh 'npm install --prefer-offline --no-audit --no-fund'
-                    sh "VITE_GOOGLE_MAPS_API_KEY=${MAPS_KEY} VITE_STRIPE_PUBLISHABLE_KEY=${STRIPE_KEY} npm run build"
+                    sh "VITE_GOOGLE_MAPS_API_KEY=${MAPS_KEY} VITE_STRIPE_PUBLISHABLE_KEY=${STRIPE_KEYs} npm run build"
                 }
             }
         }
@@ -64,6 +64,9 @@ pipeline {
     post {
         success {
             echo "✅ Frontend deployed to http://172.31.15.225"
+        }
+        failure {
+            echo "❌Error while deploying frontend."
         }
         always {
             script { if (env.NODE_NAME) { cleanWs() } }
