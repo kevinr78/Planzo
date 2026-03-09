@@ -13,7 +13,7 @@ ENV NODE_OPTIONS="--max-old-space-size=1536"
 # Build stage
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
 RUN npm run build
 
