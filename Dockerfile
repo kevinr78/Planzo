@@ -1,6 +1,17 @@
-# Build stage
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+# Define Build Arguments
+ARG VITE_GOOGLE_MAPS_API_KEY
+ARG VITE_STRIPE_PUBLISHABLE_KEY
+
+# Set them as Environment Variables so Vite sees them
+ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
+ENV VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY
+ENV NODE_OPTIONS="--max-old-space-size=1536"
+
+# Build stage
+
 COPY package*.json ./
 RUN npm ci
 COPY . .

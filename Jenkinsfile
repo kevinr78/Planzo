@@ -22,21 +22,21 @@ pipeline {
             }
         }
         
-        stage('Install & Builds') {
+     stage('Docker Build & Package') {
             steps {
+                echo "=== Building Image (NPM Install & Vite Build happen here) ==="
+                // Pass your API keys as Build Args so the Dockerfile can use them
                 withCredentials([
                     string(credentialsId: 'VITE_GOOGLE_MAPS_API_KEY', variable: 'MAPS_KEY'),
                     string(credentialsId: 'VITE_STRIPE_PUBLISHABLE_KEY', variable: 'STRIPE_KEY')
                 ]) {
-                    sh 'npm install --prefer-offline --no-audit --no-fund'
-                    sh "VITE_GOOGLE_MAPS_API_KEY=${MAPS_KEY} VITE_STRIPE_PUBLISHABLE_KEY=${STRIPE_KEY} npm run build"
+                    sh """
+                        docker build \
+                        --build-arg VITE_GOOGLE_MAPS_API_KEY=${MAPS_KEY} \
+                        --build-arg VITE_STRIPE_PUBLISHABLE_KEY=${STRIPE_KEY} \
+                        -t ${DOCKER_IMAGE} .
+                    """
                 }
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
 
