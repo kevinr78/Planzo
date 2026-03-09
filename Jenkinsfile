@@ -43,7 +43,7 @@ pipeline {
         steps {
             script {
                 def targetServer = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? DEV_SERVER : QA_SERVER
-                
+                def envName = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? "PRODUCTION (Dev)" : "QA/STAGING"
                 withCredentials([
                     string(credentialsId: 'POSTGRES_USER', variable: 'DB_USER'),
                     string(credentialsId: 'POSTGRES_PASSWORD', variable: 'DB_PASS'),
