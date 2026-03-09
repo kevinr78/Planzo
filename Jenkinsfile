@@ -4,22 +4,24 @@ pipeline {
     options {
         timestamps()
         disableConcurrentBuilds()
-        timeout(time:8, unit: 'MINUTES')
+        timeout(time: 8, unit: 'MINUTES')
     }
 
     environment {
         APP_NAME     = 'planzo-web'
-        DEV_SERVER   = "ubuntu@172.31.15.225"
         DOCKER_IMAGE = "${APP_NAME}:latest"
+        // Base Servers
+        DEV_SERVER   = "ubuntu@172.31.15.225"
+        QA_SERVER    = "ubuntu@172.31.3.1"
     }
 
     stages {
         stage('Checkout') {
-          
             steps {
                 checkout scm
             }
         }
+        
         stage('Install & Builds') {
             steps {
                 withCredentials([
@@ -34,39 +36,47 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                echo "=== Building Frontend Image ==="
                 sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
 
         stage('Remote Deploy') {
-          steps {
-            script {
-              // 1. Save the image on Jenkins and pipe it to the Dev Server over SSH.
-              echo "=== Transferring Image to Dev Server ==="
-              sh "docker save ${DOCKER_IMAGE} | ssh -o StrictHostKeyChecking=no ${DEV_SERVER} 'docker load'"
+            steps {
+                script {
+                    // Determine Target Server based on Branch
+                    def targetServer = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? DEV_SERVER : QA_SERVER
+                    def envName = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? "PRODUCTION (Dev)" : "QA/STAGING"
+                    
+                    echo "=== Deploying to ${envName} at ${targetServer} ==="
 
-              // 2. Transfer docker-compose.yml
-              sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${DEV_SERVER}:~/docker-compose.yml"
-              
-              // 3. Deploy without pulling
-              sh """
-                  ssh -o StrictHostKeyChecking=no ${DEV_SERVER} "
-                      # --no-build tells compose to use the image we just 'loaded'
-                      docker compose up -d --force-recreate app
-                      docker image prune -f
-                  "
-                """
+                    // 1. Transfer Image
+                    sh "docker save ${DOCKER_IMAGE} | ssh -o StrictHostKeyChecking=no ${targetServer} 'docker load'"
+
+                    // 2. Transfer docker-compose.yml
+                    sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${targetServer}:~/docker-compose.yml"
+                    
+                    // 3. Remote Execution
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${targetServer} "
+                            docker compose up -d --force-recreate app
+                            docker image prune -f
+                        "
+                    """
+                    
+                    // Save for Slack notification
+                    env.DEPLOY_TARGET_IP = targetServer.split('@')[1]
+                    env.ENV_LABEL = envName
+                }
             }
-          }
         }
     }
+
     post {
         success {
             withCredentials([string(credentialsId: 'PLANZO_SLACK_WEBHOOK', variable: 'SLACK_URL')]) {
                 sh """
                     curl -X POST -H 'Content-type: application/json' \
-                    --data '{"text":"✅ *Planzo Build #${env.BUILD_NUMBER} Success!* \nDeployed to: http://172.31.15.225"}' \
+                    --data '{"text":"✅ *Build #${env.BUILD_NUMBER} Success* \n*Env:* ${env.ENV_LABEL} \n*URL:* http://${env.DEPLOY_TARGET_IP}"}' \
                     ${SLACK_URL}
                 """
             }
@@ -75,21 +85,15 @@ pipeline {
             withCredentials([string(credentialsId: 'PLANZO_SLACK_WEBHOOK', variable: 'SLACK_URL')]) {
                 sh """
                     curl -X POST -H 'Content-type: application/json' \
-                    --data '{"text":"❌ *Planzo Build #${env.BUILD_NUMBER} FAILED.* \nCheck logs: ${env.BUILD_URL}"}' \
+                    --data '{"text":"❌ *Build #${env.BUILD_NUMBER} FAILED* \n*Branch:* ${env.BRANCH_NAME} \n*Logs:* ${env.BUILD_URL}"}' \
                     ${SLACK_URL}
                 """
             }
         }
         always {
             script { 
-                // 1. Wipe the workspace files from the disk
                 cleanWs()
-                
-                // 2. Remove the local image we just built to save space
-                // Since we transferred it to the Dev server, we don't need it here anymore
                 sh "docker rmi ${DOCKER_IMAGE} || true"
-                
-                // 3. Optional: A light prune to catch any stray layers
                 sh "docker image prune -f"
             }
         }
