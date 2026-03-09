@@ -39,36 +39,42 @@ pipeline {
                 }
             }
         }
-
-        stage('Remote Deploy') {
-            steps {
-                script {
-                    // Determine Target Server based on Branchs
-                    def targetServer = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? DEV_SERVER : QA_SERVER
-                    def envName = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? "PRODUCTION (Dev)" : "QA/STAGING"
-                    
-                    echo "=== Deploying to ${envName} at ${targetServer} ==="
-
-                    // 1. Transfer Image
+    stage('Remote Deploy') {
+        steps {
+            script {
+                def targetServer = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? DEV_SERVER : QA_SERVER
+                
+                withCredentials([
+                    string(credentialsId: 'POSTGRES_USER', variable: 'DB_USER'),
+                    string(credentialsId: 'POSTGRES_PASSWORD', variable: 'DB_PASS'),
+                    string(credentialsId: 'POSTGRES_DB', variable: 'DB_NAME')
+                ]) {
+                    // 1. Transfer Image & Compose file
                     sh "docker save ${DOCKER_IMAGE} | ssh -o StrictHostKeyChecking=no ${targetServer} 'docker load'"
-
-                    // 2. Transfer docker-compose.yml
                     sh "scp -o StrictHostKeyChecking=no docker-compose.yml ${targetServer}:~/docker-compose.yml"
                     
-                    // 3. Remote Execution
+                    // 2. Deploy with Health Check
                     sh """
                         ssh -o StrictHostKeyChecking=no ${targetServer} "
-                            docker compose up -d --force-recreate app
+                            export POSTGRES_USER=${DB_USER}
+                            export POSTGRES_PASSWORD=${DB_PASS}
+                            export POSTGRES_DB=${DB_NAME}
+
+                            docker compose up -d db
+                            
+                            echo 'Waiting for PostGIS health...'
+                            until [ \\\$(docker inspect -f '{{.State.Health.Status}}' planzo-db) == 'healthy' ]; do 
+                                sleep 2
+                            done
+
+                            docker compose up -d app
                             docker image prune -f
                         "
                     """
-                    
-                    // Save for Slack notification
-                    env.DEPLOY_TARGET_IP = targetServer.split('@')[1]
-                    env.ENV_LABEL = envName
                 }
             }
         }
+    }
     }
 
     post {
