@@ -43,7 +43,7 @@ pipeline {
         stage('Remote Deploy') {
             steps {
                 script {
-                    // Determine Target Server based on Branch
+                    // Determine Target Server based on Branchs
                     def targetServer = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? DEV_SERVER : QA_SERVER
                     def envName = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? "PRODUCTION (Dev)" : "QA/STAGING"
                     
