@@ -71,6 +71,8 @@ pipeline {
                             docker image prune -f
                         "
                     """
+                    env.DEPLOY_TARGET_IP = targetServer.split('@')[1]
+                    env.ENV_LABEL = envName
                 }
             }
         }
